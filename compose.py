@@ -15,6 +15,10 @@ OUT = "entry.png"
 BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
 REG = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 SERIFB = "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"
+# Noto Serif Display — a proper newspaper display face (condensed, high
+# contrast). Headlines and masthead use it; body stays DejaVu Sans.
+DISPB = "/usr/share/fonts/truetype/noto/NotoSerifDisplay-Bold.ttf"
+DISPBLACK = "/usr/share/fonts/truetype/noto/NotoSerifDisplay-Black.ttf"
 
 W, H = 1024, 1024
 PAPER = (246, 241, 231)
@@ -25,12 +29,12 @@ GOLD = (180, 140, 40)
 GREY = (90, 90, 86)
 CARD = (255, 255, 255)
 BORDER = (206, 200, 186)
-OCEAN = (214, 230, 238)
-LAND = (178, 188, 158)
+OCEAN = (203, 224, 234)
+LAND = (172, 184, 152)
 GRAT = (190, 205, 212)
 
 MAP_X0, MAP_X1 = 16, 1008
-MAP_Y0, MAP_Y1 = 110, 212
+MAP_Y0, MAP_Y1 = 112, 198
 LON0, LON1 = -170.0, 190.0
 LAT0, LAT1 = 72.0, -50.0
 
@@ -81,13 +85,13 @@ CONTINENTS = [
         (-62, -38), (-58, -44), (-56, -50), (-64, -54), (-68, -52),
         (-70, -46), (-72, -38), (-74, -30), (-76, -22), (-79, -14),
         (-81, -6), (-80, 2), (-80, 10)]),
-    ("EUROPE", (8, 57), [
+    ("EUROPE", (0, 62), [
         (-10, 36), (-8, 43), (-2, 47), (0, 50), (4, 53),
         (8, 55), (12, 57), (18, 58), (22, 60), (26, 64),
         (30, 70), (36, 68), (40, 64), (42, 58), (38, 54),
         (32, 50), (28, 46), (24, 44), (20, 42), (16, 40),
         (12, 38), (8, 37), (4, 36), (0, 38), (-5, 36), (-10, 36)]),
-    ("AFRICA", (20, 4), [
+    ("AFRICA", (10, 8), [
         (-17, 15), (-12, 28), (-6, 34), (2, 37), (10, 37),
         (18, 33), (26, 32), (32, 31), (36, 28), (40, 18),
         (44, 12), (51, 11), (50, 4), (46, -2), (40, -8),
@@ -115,14 +119,17 @@ CONTINENTS = [
         (121.0, 9.0), (119.8, 12.0), (119.5, 16.0)]),
 ]
 
-# (number, lon, lat)
+# (number, lon, lat, display offset px or None)
+# Pin 6 (Eritrea) is nudged with a leader line: at r=11 its true spot sits
+# ~21px below pin 1 (Kerch), so the two circles overlap; the offset puts it
+# clear of pins 1, 3 and 5.
 PINS = [
-    (1, 37.5, 45.3),    # Kerch Bridge
-    (2, 121.0, 14.6),   # Manila
-    (3, 56.5, 26.5),    # Strait of Hormuz
-    (4, -74.0, 40.7),   # New York / JPMorgan
-    (5, 30.0, -2.0),    # Rwanda
-    (6, 39.0, 15.3),    # Eritrea
+    (1, 37.5, 45.3, None),    # Kerch Bridge
+    (2, 121.0, 14.6, None),   # Manila
+    (3, 56.5, 26.5, None),    # Strait of Hormuz
+    (4, -74.0, 40.7, None),   # New York / JPMorgan
+    (5, 30.0, -2.0, None),    # Rwanda
+    (6, 39.0, 15.3, (24, 16)),  # Eritrea, offset with leader
 ]
 
 # (region, headline, summary, icon, tile colour)
@@ -141,7 +148,7 @@ LEADS = [
      "bank", (122, 92, 46)),
     ("EUROPE", "FIVE EU STATES PLAN RWANDA RETURN HUB",
      "The five states open talks with Kigali; first transfers planned for 2027.",
-     "globe", (91, 74, 138)),
+     "globe", (44, 68, 98)),
     ("AFRICA", "WHO: ERITREA BEATS TRACHOMA",
      "Eritrea becomes the 34th country to eliminate trachoma as a public health problem.",
      "eye", (46, 125, 107)),
@@ -271,13 +278,18 @@ def draw_map(d):
         if not name or name == "GREENLAND":
             continue
         lx, ly = project(llo, lla)
-        d.text((lx, ly), name, font=lab_f, fill=(110, 118, 100), anchor="mm")
+        d.text((lx, ly), name, font=lab_f, fill=(88, 96, 80), anchor="mm")
     pin_f = font(BOLD, 13)
-    for num, lo, la in PINS:
+    for num, lo, la, off in PINS:
         px, py = project(lo, la)
-        d.ellipse([px - 10, py - 10, px + 10, py + 10], fill=RED,
+        dx, dy = px, py
+        if off:
+            dx, dy = px + off[0], py + off[1]
+            d.line([dx, dy, px, py], fill=RED, width=1)
+            d.ellipse([px - 3, py - 3, px + 3, py + 3], fill=RED)
+        d.ellipse([dx - 11, dy - 11, dx + 11, dy + 11], fill=RED,
                   outline=(255, 255, 255), width=2)
-        d.text((px, py - 1), str(num), font=pin_f, fill=(255, 255, 255), anchor="mm")
+        d.text((dx, dy - 1), str(num), font=pin_f, fill=(255, 255, 255), anchor="mm")
 
 
 def main():
@@ -285,22 +297,32 @@ def main():
     d = ImageDraw.Draw(page)
 
     # ---- Masthead ----
-    d.text((W // 2, 10), "THE WORLD IN ONE PAGE", font=font(SERIFB, 38),
+    d.text((W // 2, 8), "THE WORLD IN ONE PAGE", font=font(DISPBLACK, 42),
            fill=NAVY, anchor="ma")
-    d.text((W // 2, 58), "TUESDAY, 17 NOVEMBER 2026  \u00b7  24 STORIES  \u00b7  5 CONTINENTS",
-           font=font(BOLD, 16), fill=GREY, anchor="ma")
-    d.rectangle([16, 84, W - 16, 88], fill=RED)
-    d.rectangle([16, 91, W - 16, 92], fill=INK)
+    # Date line: grey date, story counts picked out in red, centered as one unit.
+    date_f = font(BOLD, 16)
+    segs = [("TUESDAY, 17 NOVEMBER 2026  \u00b7  ", GREY),
+            ("24 STORIES", RED),
+            ("  \u00b7  ", GREY),
+            ("5 CONTINENTS", RED)]
+    total = sum(date_f.getlength(t) for t, _ in segs)
+    sx = (W - total) // 2
+    for t, c in segs:
+        d.text((sx, 62), t, font=date_f, fill=c)
+        sx += date_f.getlength(t)
+    d.rectangle([16, 86, W - 16, 90], fill=RED)
+    d.rectangle([16, 93, W - 16, 94], fill=INK)
 
     # ---- Map strip ----
-    d.text((16, 97), "WHERE THE NEWS HAPPENED \u2014 SIX LEADS, NUMBERED",
-           font=font(BOLD, 12), fill=GREY)
+    d.text((16, 98), "WHERE THE NEWS HAPPENED", font=font(BOLD, 12), fill=GREY)
+    d.text((W - 16, 98), "SIX LEADS, NUMBERED", font=font(BOLD, 12),
+           fill=RED, anchor="ra")
     draw_map(d)
     d.rectangle([MAP_X0, MAP_Y0, MAP_X1, MAP_Y1], outline=BORDER, width=1)
 
     # ---- Lead cards: 2 columns x 3 rows ----
-    card_w, card_h, gap = 492, 156, 8
-    y0 = 220
+    card_w, card_h, gap = 492, 146, 8
+    y0 = 204
     for i, (region, headline, summary, icon, tile) in enumerate(LEADS):
         col, row = i % 2, i // 2
         x = 16 + col * (card_w + gap)
@@ -312,28 +334,29 @@ def main():
                fill=(255, 255, 255), anchor="mm")
         # icon tile
         tx, ty, ts = x + 40, y + 10, 64
-        d.rounded_rectangle([tx, ty, tx + ts, ty + ts], radius=8, fill=tile)
+        d.rounded_rectangle([tx, ty, tx + ts, ty + ts], radius=6, fill=tile)
         ICONS[icon](d, tx, ty, ts)
         # text block
         tx0 = x + 116
         d.text((tx0, y + 12), region, font=font(BOLD, 12), fill=RED)
-        head_f = font(BOLD, 26)
+        head_f = font(DISPB, 26)
         lines = wrap(headline, head_f, card_w - 116 - 12)
         hy = y + 30
         for ln in lines[:2]:
             d.text((tx0, hy), ln, font=head_f, fill=INK)
-            hy += 30
+            hy += 31
         sum_f = font(REG, 15)
         slines = wrap(summary, sum_f, card_w - 116 - 12)
-        sy = y + 96
+        sy = hy + 10
         for ln in slines[:2]:
             d.text((tx0, sy), ln, font=sum_f, fill=(60, 60, 58))
-            sy += 19
+            sy += 18
 
     # ---- ALSO list ----
-    ay = 712
-    d.text((16, ay), "ALSO ON THIS PAGE", font=font(BOLD, 14), fill=NAVY)
-    d.rectangle([16, ay + 22, W - 16, ay + 23], fill=BORDER)
+    ay = 666
+    d.rectangle([16, ay + 3, 24, ay + 11], fill=RED)
+    d.text((32, ay), "ALSO ON THIS PAGE", font=font(BOLD, 14), fill=NAVY)
+    d.rectangle([16, ay + 22, W - 16, ay + 24], fill=INK)
     tag_f = font(BOLD, 14)
     txt_f = font(REG, 14)
     ly = ay + 30
@@ -344,24 +367,28 @@ def main():
             tw = tag_f.getlength(tag) + 8
             d.text((cx + tw, cy), text, font=txt_f, fill=INK)
             cy += 18
+    d.line([508, ly, 508, ly + 9 * 18 - 4], fill=BORDER, width=1)
 
     # ---- BY THE NUMBERS ----
-    ny = 906
-    d.text((16, ny), "BY THE NUMBERS", font=font(BOLD, 14), fill=NAVY)
-    d.rectangle([16, ny + 22, W - 16, ny + 23], fill=BORDER)
+    ny = 874
+    d.rectangle([16, ny + 3, 24, ny + 11], fill=RED)
+    d.text((32, ny), "BY THE NUMBERS", font=font(BOLD, 14), fill=NAVY)
+    d.rectangle([16, ny + 22, W - 16, ny + 24], fill=INK)
     cell_w = 246
     for i, (num, label) in enumerate(NUMBERS):
         cx = 16 + i * cell_w
-        d.text((cx, ny + 30), num, font=font(BOLD, 26), fill=NAVY)
+        if i:
+            d.line([cx - 8, ny + 30, cx - 8, ny + 30 + 54], fill=BORDER, width=1)
+        d.text((cx, ny + 30), num, font=font(DISPB, 28), fill=NAVY)
         lab_f = font(REG, 12)
         llines = wrap(label, lab_f, cell_w - 8)
-        ly2 = ny + 62
+        ly2 = ny + 66
         for ln in llines[:2]:
             d.text((cx, ly2), ln, font=lab_f, fill=GREY)
             ly2 += 15
 
     # ---- Source line ----
-    d.text((W // 2, 994),
+    d.text((W // 2, 998),
            "Sources: AP \u00b7 Reuters \u00b7 AFP \u00b7 BBC \u00b7 Al Jazeera \u00b7 WHO \u00b7 UKMTO \u00b7 UN  \u2014  "
            "Claims marked \u201csays\u201d are unconfirmed. All drawings original.",
            font=font(REG, 11), fill=GREY, anchor="ma")
