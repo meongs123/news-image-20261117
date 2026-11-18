@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""Compose the news-image-20261117 front page: a PIL-only editorial poster.
+"""Compose the news-image-20261117 front page v3: hero-led editorial poster.
 
-One image that sums up Tuesday 17 November 2026: masthead + date + story
-count, a numbered world map, six lead cards with flat programmatic icons,
-an ALSO one-liner list, a BY THE NUMBERS strip, and a source line.
-Fully deterministic (identical bytes on every run), no network, no photos:
-every drawing is made here from PIL primitives. All facts were verified
-against real reporting before locking; disputed claims are hedged.
+One image that sums up Tuesday 17 November 2026, re-hierarchised around the
+day's most sensational story: masthead + date + story count, a BIG HERO
+panel for the Kerch Bridge span falling (large flat-vector illustration
+drawn programmatically, no photos), a numbered world map, five lead cards
+for the other leads, an ALSO one-liner list, BY THE NUMBERS as a 2x2 card,
+and a source line. Fully deterministic (identical bytes on every run), no
+network, no photos: every drawing is made here from PIL primitives. All
+facts were verified against real reporting before locking; disputed claims
+are hedged. Same 24 verified stories as v2, same facts, same hedges.
 """
 from PIL import Image, ImageDraw, ImageFont
 
@@ -32,11 +35,24 @@ BORDER = (206, 200, 186)
 OCEAN = (203, 224, 234)
 LAND = (172, 184, 152)
 GRAT = (190, 205, 212)
+SLATE = (44, 68, 98)
 
 MAP_X0, MAP_X1 = 16, 1008
-MAP_Y0, MAP_Y1 = 112, 198
+MAP_Y0, MAP_Y1 = 360, 440
 LON0, LON1 = -170.0, 190.0
 LAT0, LAT1 = 72.0, -50.0
+
+# Hero panel geometry
+HERO_Y0, HERO_Y1 = 100, 336
+HERO_ILL_X0, HERO_ILL_Y0 = 508, 108
+HERO_ILL_W, HERO_ILL_H = 484, 220
+
+# Lead cards (stories 2-6): 2 columns x 3 rows; the 6th slot holds
+# BY THE NUMBERS as a 2x2 card.
+CARDS_Y0 = 448
+CARD_W, CARD_H, CARD_GAP = 492, 116, 6
+
+ALSO_Y = 816
 
 
 def font(path, size):
@@ -133,6 +149,7 @@ PINS = [
 ]
 
 # (region, headline, summary, icon, tile colour)
+# Lead 1 (Kerch) is the HERO panel, not a card; cards below are leads 2-6.
 LEADS = [
     ("EUROPE", "KERCH BRIDGE ROAD SPAN FALLS",
      "Drones and missiles drop the road arch in a seven-stage operation; rail still stands.",
@@ -178,7 +195,7 @@ ALSO_B = [
     ("M. EAST", "Israel, UAE discuss resuming flydubai to Tel Aviv"),
 ]
 
-# (big number, label) — labels must fit one line at 12pt in 238px
+# (big number, label) — labels must fit one line at 11pt in 238px
 NUMBERS = [
     ("1,336", "drones Russia says it downed"),
     ("$115.8B", "Nvidia quarterly revenue, up 103%"),
@@ -257,6 +274,85 @@ ICONS = {"bridge": draw_bridge, "flags": draw_flags, "carrier": draw_carrier,
          "bank": draw_bank, "globe": draw_globe, "eye": draw_eye}
 
 
+def draw_hero_illustration(d, x0, y0, w, h):
+    """Kerch Bridge span collapsing at dusk — flat vector, PIL only.
+
+    Local coords (0,0) = top-left of the illustration box. Dusk sky
+    (navy -> orange -> gold horizon), dark sea, the bridge deck broken
+    in the middle with one span falling into the water, smoke rising
+    from the break, an explosion flash, splash and debris. 100%
+    original procedural drawing; no photo, no copied image.
+    """
+    deck = (235, 235, 228)
+    # --- sky bands ---
+    d.rectangle([x0, y0, x0 + w, y0 + 70], fill=(11, 29, 51))
+    d.rectangle([x0, y0 + 70, x0 + w, y0 + 96], fill=(206, 110, 48))
+    d.rectangle([x0, y0 + 96, x0 + w, y0 + 112], fill=(232, 176, 96))
+    # --- sea ---
+    d.rectangle([x0, y0 + 112, x0 + w, y0 + h], fill=(18, 48, 74))
+    # --- stars (deterministic positions) ---
+    for sx, sy in [(40, 18), (90, 30), (150, 14), (210, 26), (300, 16),
+                   (360, 28), (430, 20), (250, 42), (120, 48), (330, 52)]:
+        d.ellipse([x0 + sx - 2, y0 + sy - 2, x0 + sx + 2, y0 + sy + 2],
+                  fill=(255, 255, 255))
+    # --- waves ---
+    for wx, wy in [(20, 135), (120, 140), (300, 132), (380, 145),
+                   (60, 165), (200, 170), (340, 162), (420, 168),
+                   (100, 200), (260, 198), (400, 202)]:
+        d.arc([x0 + wx, y0 + wy - 6, x0 + wx + 60, y0 + wy + 6],
+              200, 340, fill=(210, 225, 235), width=2)
+    # --- bridge towers ---
+    for tx in (70, 400):
+        d.rectangle([x0 + tx - 3, y0 + 34, x0 + tx + 3, y0 + 118], fill=deck)
+        d.rectangle([x0 + tx - 9, y0 + 48, x0 + tx + 9, y0 + 54], fill=deck)
+    # --- cables ---
+    for (cx0, cy0, cx1, cy1) in [
+            (70, 34, 20, 114), (70, 34, 120, 114), (70, 34, 165, 114),
+            (400, 34, 325, 114), (400, 34, 420, 114), (400, 34, 470, 114)]:
+        d.line([x0 + cx0, y0 + cy0, x0 + cx1, y0 + cy1],
+               fill=(220, 220, 214), width=2)
+    # --- deck: left and right segments, gap in the middle ---
+    d.rectangle([x0, y0 + 113, x0 + 170, y0 + 121], fill=deck)
+    d.rectangle([x0 + 320, y0 + 113, x0 + w, y0 + 121], fill=deck)
+    # --- collapsed span falling into the sea ---
+    d.line([x0 + 175, y0 + 116, x0 + 255, y0 + 182], fill=deck, width=9)
+    d.line([x0 + 255, y0 + 182, x0 + 275, y0 + 196], fill=deck, width=6)
+    # --- splash where the span hits the water ---
+    d.arc([x0 + 240, y0 + 170, x0 + 284, y0 + 202], 200, 340,
+          fill=(255, 255, 255), width=2)
+    d.arc([x0 + 248, y0 + 178, x0 + 276, y0 + 200], 200, 340,
+          fill=(255, 255, 255), width=2)
+    for dx, dy in [(235, 175), (290, 180), (250, 168), (296, 192)]:
+        d.ellipse([x0 + dx - 2, y0 + dy - 2, x0 + dx + 2, y0 + dy + 2],
+                  fill=(255, 255, 255))
+    # --- debris on the water ---
+    for dx, dy, dw in [(228, 170, 12), (290, 196, 10), (300, 190, 8)]:
+        d.rectangle([x0 + dx, y0 + dy, x0 + dx + dw, y0 + dy + 3],
+                    fill=(200, 200, 196))
+    # --- smoke rising from the break ---
+    for (sx0, sy0, sx1, sy1, c) in [
+            (193, 66, 227, 100, (88, 88, 86)),
+            (213, 46, 257, 90, (140, 140, 136)),
+            (238, 62, 270, 94, (88, 88, 86)),
+            (258, 78, 284, 104, (150, 150, 146)),
+            (188, 86, 216, 112, (88, 88, 86))]:
+        d.ellipse([x0 + sx0, y0 + sy0, x0 + sx1, y0 + sy1], fill=c)
+    # --- explosion flash at the break point ---
+    d.ellipse([x0 + 165, y0 + 99, x0 + 191, y0 + 125], fill=(232, 140, 40))
+    d.ellipse([x0 + 171, y0 + 105, x0 + 185, y0 + 119], fill=(255, 210, 63))
+    for (rx0, ry0, rx1, ry1) in [(178, 90, 178, 98), (178, 126, 178, 134),
+                                 (156, 112, 164, 112), (192, 112, 200, 112)]:
+        d.line([x0 + rx0, y0 + ry0, x0 + rx1, y0 + ry1],
+               fill=(255, 210, 63), width=2)
+    # --- pin badge 1, tying the hero to map pin 1 ---
+    d.ellipse([x0 + 14, y0 + 14, x0 + 42, y0 + 42], fill=RED,
+              outline=(255, 255, 255), width=2)
+    d.text((x0 + 28, y0 + 27), "1", font=font(BOLD, 15),
+           fill=(255, 255, 255), anchor="mm")
+    # --- frame ---
+    d.rectangle([x0, y0, x0 + w, y0 + h], outline=BORDER, width=1)
+
+
 def draw_map(d):
     d.rectangle([MAP_X0, MAP_Y0, MAP_X1, MAP_Y1], fill=OCEAN)
     # graticule every 30 degrees
@@ -313,52 +409,98 @@ def main():
     d.rectangle([16, 86, W - 16, 90], fill=RED)
     d.rectangle([16, 93, W - 16, 94], fill=INK)
 
+    # ---- HERO panel: story 1, the day's biggest story ----
+    d.rectangle([16, HERO_Y0, W - 16, HERO_Y1], fill=CARD, outline=BORDER, width=1)
+    # kicker: number badge + region + "biggest story" line
+    d.ellipse([32, 112, 56, 136], fill=RED)
+    d.text((44, 123), "1", font=font(BOLD, 14),
+           fill=(255, 255, 255), anchor="mm")
+    d.text((64, 117), "EUROPE \u00b7 THE DAY'S BIGGEST STORY", font=font(BOLD, 13), fill=RED)
+    # headline, Noto Serif Display Black 46 — clearly bigger than the 42pt
+    # masthead, so the hero leads without drowning it
+    head_f = font(DISPBLACK, 46)
+    hlines = wrap(LEADS[0][1], head_f, 460)
+    hy = 140
+    for ln in hlines[:2]:
+        d.text((32, hy), ln, font=head_f, fill=INK)
+        hy += 52
+    # summary, verbatim from v2
+    sum_f = font(REG, 16)
+    slines = wrap(LEADS[0][2], sum_f, 460)
+    sy = 244
+    for ln in slines[:2]:
+        d.text((32, sy), ln, font=sum_f, fill=(60, 60, 58))
+        sy += 20
+    # bottom line: the outcome, restating the verified summary
+    d.rectangle([32, 292, 92, 294], fill=RED)
+    d.text((32, 302), "ROAD SPAN DOWN \u00b7 RAIL SPAN STANDS",
+           font=font(BOLD, 14), fill=RED)
+    # hero illustration, right half of the panel
+    draw_hero_illustration(d, HERO_ILL_X0, HERO_ILL_Y0, HERO_ILL_W, HERO_ILL_H)
+
     # ---- Map strip ----
-    d.text((16, 98), "WHERE THE NEWS HAPPENED", font=font(BOLD, 12), fill=GREY)
-    d.text((W - 16, 98), "SIX LEADS, NUMBERED", font=font(BOLD, 12),
+    d.text((16, 344), "WHERE THE NEWS HAPPENED", font=font(BOLD, 12), fill=GREY)
+    d.text((W - 16, 344), "SIX LEADS, NUMBERED", font=font(BOLD, 12),
            fill=RED, anchor="ra")
     draw_map(d)
     d.rectangle([MAP_X0, MAP_Y0, MAP_X1, MAP_Y1], outline=BORDER, width=1)
 
-    # ---- Lead cards: 2 columns x 3 rows ----
-    card_w, card_h, gap = 492, 146, 8
-    y0 = 204
-    for i, (region, headline, summary, icon, tile) in enumerate(LEADS):
+    # ---- Lead cards 2-6: 2 columns x 3 rows; slot 6 is BY THE NUMBERS ----
+    for i, (region, headline, summary, icon, tile) in enumerate(LEADS[1:]):
+        num = i + 2
         col, row = i % 2, i // 2
-        x = 16 + col * (card_w + gap)
-        y = y0 + row * (card_h + gap)
-        d.rectangle([x, y, x + card_w, y + card_h], fill=CARD, outline=BORDER, width=1)
+        x = 16 + col * (CARD_W + CARD_GAP)
+        y = CARDS_Y0 + row * (CARD_H + CARD_GAP)
+        d.rectangle([x, y, x + CARD_W, y + CARD_H], fill=CARD, outline=BORDER, width=1)
         # number badge
         d.ellipse([x + 8, y + 8, x + 30, y + 30], fill=RED)
-        d.text((x + 19, y + 18), str(i + 1), font=font(BOLD, 14),
+        d.text((x + 19, y + 18), str(num), font=font(BOLD, 14),
                fill=(255, 255, 255), anchor="mm")
         # icon tile
-        tx, ty, ts = x + 40, y + 10, 64
+        tx, ty, ts = x + 38, y + 8, 56
         d.rounded_rectangle([tx, ty, tx + ts, ty + ts], radius=6, fill=tile)
         ICONS[icon](d, tx, ty, ts)
         # text block
-        tx0 = x + 116
-        d.text((tx0, y + 12), region, font=font(BOLD, 12), fill=RED)
-        head_f = font(DISPB, 26)
-        lines = wrap(headline, head_f, card_w - 116 - 12)
-        hy = y + 30
+        tx0 = x + 104
+        d.text((tx0, y + 8), region, font=font(BOLD, 11), fill=RED)
+        head_f = font(DISPB, 23)
+        lines = wrap(headline, head_f, CARD_W - 104 - 10)
+        hy = y + 24
         for ln in lines[:2]:
             d.text((tx0, hy), ln, font=head_f, fill=INK)
-            hy += 31
-        sum_f = font(REG, 15)
-        slines = wrap(summary, sum_f, card_w - 116 - 12)
-        sy = hy + 10
+            hy += 26
+        sum_f = font(REG, 13)
+        slines = wrap(summary, sum_f, CARD_W - 104 - 10)
+        sy = hy + 6
         for ln in slines[:2]:
             d.text((tx0, sy), ln, font=sum_f, fill=(60, 60, 58))
-            sy += 18
+            sy += 15
+
+    # ---- BY THE NUMBERS as a 2x2 card in the 6th slot ----
+    nx, ny = 16 + CARD_W + CARD_GAP, CARDS_Y0 + 2 * (CARD_H + CARD_GAP)
+    d.rectangle([nx, ny, nx + CARD_W, ny + CARD_H], fill=CARD, outline=BORDER, width=1)
+    d.rectangle([nx + 8, ny + 11, nx + 16, ny + 19], fill=RED)
+    d.text((nx + 22, ny + 8), "BY THE NUMBERS", font=font(BOLD, 13), fill=NAVY)
+    d.rectangle([nx + 8, ny + 28, nx + CARD_W - 8, ny + 30], fill=INK)
+    num_f = font(DISPB, 24)
+    lab_f = font(REG, 11)
+    for i, (num, label) in enumerate(NUMBERS):
+        col, row = i % 2, i // 2
+        cx = nx + 8 + col * 242
+        cy = ny + 34 + row * 42
+        d.text((cx, cy), num, font=num_f, fill=NAVY)
+        d.text((cx, cy + 26), label, font=lab_f, fill=GREY)
+        if col == 0:
+            d.line([nx + 242, ny + 34, nx + 242, ny + 34 + 78], fill=BORDER, width=1)
+    d.line([nx + 8, ny + 74, nx + CARD_W - 8, ny + 74], fill=BORDER, width=1)
 
     # ---- ALSO list ----
-    ay = 666
+    ay = ALSO_Y
     d.rectangle([16, ay + 3, 24, ay + 11], fill=RED)
     d.text((32, ay), "ALSO ON THIS PAGE", font=font(BOLD, 14), fill=NAVY)
     d.rectangle([16, ay + 22, W - 16, ay + 24], fill=INK)
-    tag_f = font(BOLD, 14)
-    txt_f = font(REG, 14)
+    tag_f = font(BOLD, 13)
+    txt_f = font(REG, 13)
     ly = ay + 30
     for col_items, cx in ((ALSO_A, 16), (ALSO_B, 516)):
         cy = ly
@@ -366,26 +508,8 @@ def main():
             d.text((cx, cy), tag, font=tag_f, fill=RED)
             tw = tag_f.getlength(tag) + 8
             d.text((cx + tw, cy), text, font=txt_f, fill=INK)
-            cy += 18
-    d.line([508, ly, 508, ly + 9 * 18 - 4], fill=BORDER, width=1)
-
-    # ---- BY THE NUMBERS ----
-    ny = 874
-    d.rectangle([16, ny + 3, 24, ny + 11], fill=RED)
-    d.text((32, ny), "BY THE NUMBERS", font=font(BOLD, 14), fill=NAVY)
-    d.rectangle([16, ny + 22, W - 16, ny + 24], fill=INK)
-    cell_w = 246
-    for i, (num, label) in enumerate(NUMBERS):
-        cx = 16 + i * cell_w
-        if i:
-            d.line([cx - 8, ny + 30, cx - 8, ny + 30 + 54], fill=BORDER, width=1)
-        d.text((cx, ny + 30), num, font=font(DISPB, 28), fill=NAVY)
-        lab_f = font(REG, 12)
-        llines = wrap(label, lab_f, cell_w - 8)
-        ly2 = ny + 66
-        for ln in llines[:2]:
-            d.text((cx, ly2), ln, font=lab_f, fill=GREY)
-            ly2 += 15
+            cy += 15
+    d.line([508, ly, 508, ly + 9 * 15 - 4], fill=BORDER, width=1)
 
     # ---- Source line ----
     d.text((W // 2, 998),
